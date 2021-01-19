@@ -136,7 +136,7 @@ void BMSModuleManager::balanceCells()
   msg.id = 0x300;
   msg.len = 8;
 
-  /*
+  
   SERIALCONSOLE.print("   DEBUG Balance - ID:    ");
   SERIALCONSOLE.print(msg.id, HEX);
   SERIALCONSOLE.println("    ");
@@ -148,7 +148,7 @@ void BMSModuleManager::balanceCells()
     SERIALCONSOLE.print(msg.buf[i], BIN);
     SERIALCONSOLE.println(' ');
   }
-  */
+  
 
   Can0.write(msg);
 
@@ -181,7 +181,7 @@ void BMSModuleManager::balanceCells()
   msg.id = 0x310;
   msg.len = 5;
 
-  /*
+  
   SERIALCONSOLE.print("   DEBUG Balance - ID:    ");
   SERIALCONSOLE.print(msg.id, HEX);
   SERIALCONSOLE.println("    ");
@@ -193,7 +193,7 @@ void BMSModuleManager::balanceCells()
     SERIALCONSOLE.print(msg.buf[i], BIN);
     SERIALCONSOLE.println(' ');
   }
-  */
+  
 
   Can0.write(msg);
 }
