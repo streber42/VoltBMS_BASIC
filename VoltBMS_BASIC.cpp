@@ -93,7 +93,7 @@ int cellspresent = 0;
 
 //Debugging modes//////////////////
 int debug = 1;
-int candebug = 0;       //view can frames
+int candebug = 1;       //view can frames
 int debugdigits = 3; //amount of digits behind decimal for voltage reading
 
 
@@ -129,109 +129,12 @@ void loadSettings()
 }
 
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> Can0;
+FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> Can1;
 CAN_message_t msg;
 CAN_message_t inMsg;
 // CAN_filter_t filter;
 
 
-void setup()
-{
-	delay(4000); //just for easy debugging. It takes a few seconds for USB to come up properly on most OS's
-	pinMode(KEY, INPUT_PULLDOWN);
-	pinMode(CHRG_EN, OUTPUT); // charge relay
-	pinMode(GAUGE, OUTPUT); // GAUGE LEVEL OUTPUT
-	pinMode(led, OUTPUT);
-
-	analogWriteFrequency(GAUGE, 1000);
-
-	Can0.begin();
-	Can0.setBaudRate(125000);
-
-	//set filters for standard
-	// for (int i = 0; i < 8; i++)
-	// {
-	// 	Can0.getFilter(filter, i);
-	// 	filter.flags.extended = 0;
-	// 	Can0.setFilter(filter, i);
-	// }
-	//set filters for extended
-	// for (int i = 9; i < 13; i++)
-	// {
-	// 	Can0.getFilter(filter, i);
-	// 	filter.flags.extended = 1;
-	// 	Can0.setFilter(filter, i);
-	// }
-
-	//filter setup
-	for (int thisReading = 0; thisReading < numReadings; thisReading++) {
-		readings[thisReading] = 0;
-	}
-	/////////////////
-
-	SERIALCONSOLE.begin(115200);
-	SERIALCONSOLE.println("Starting up!");
-	SERIALCONSOLE.println("SimpBMS V2 Volt-Ampera");
-
-	//Serial2.begin(115200);
-	Serial3.begin(9600);
-
-	// Display reason the Teensy was last reset
-	// Serial.println();
-	// Serial.println("Reason for last Reset: ");
-
-	// if (RCM_SRS1 & RCM_SRS1_SACKERR)
-	// 	Serial.println("Stop Mode Acknowledge Error Reset");
-	// if (RCM_SRS1 & RCM_SRS1_MDM_AP)
-	// 	Serial.println("MDM-AP Reset");
-	// if (RCM_SRS1 & RCM_SRS1_SW)
-	// 	Serial.println("Software Reset"); // reboot with SCB_AIRCR = 0x05FA0004
-	// if (RCM_SRS1 & RCM_SRS1_LOCKUP)
-	// 	Serial.println("Core Lockup Event Reset");
-	// if (RCM_SRS0 & RCM_SRS0_POR)
-	// 	Serial.println("Power-on Reset"); // removed / applied power
-	// if (RCM_SRS0 & RCM_SRS0_PIN)
-	// 	Serial.println("External Pin Reset"); // Reboot with software download
-	// if (RCM_SRS0 & RCM_SRS0_WDOG)
-	// 	Serial.println("Watchdog(COP) Reset"); // WDT timed out
-	// if (RCM_SRS0 & RCM_SRS0_LOC)
-	// 	Serial.println("Loss of External Clock Reset");
-	// if (RCM_SRS0 & RCM_SRS0_LOL)
-	// 	Serial.println("Loss of Lock in PLL Reset");
-	// if (RCM_SRS0 & RCM_SRS0_LVD)
-	// 	Serial.println("Low-voltage Detect Reset");
-	// Serial.println();
-	///////////////////
-
-	// enable WDT
-	// noInterrupts();                 // don't allow interrupts while setting up WDOG
-	// WDOG_UNLOCK = WDOG_UNLOCK_SEQ1; // unlock access to WDOG registers
-	// WDOG_UNLOCK = WDOG_UNLOCK_SEQ2;
-	// delayMicroseconds(1); // Need to wait a bit..
-
-	// WDOG_TOVALH = 0x1000;
-	// WDOG_TOVALL = 0x0000;
-	// WDOG_PRESC = 0;
-	// WDOG_STCTRLH |= WDOG_STCTRLH_ALLOWUPDATE |
-	// 	WDOG_STCTRLH_WDOGEN | WDOG_STCTRLH_WAITEN |
-	// 	WDOG_STCTRLH_STOPEN | WDOG_STCTRLH_CLKSRC;
-	// interrupts();
-	/////////////////
-
-	SERIALCONSOLE.println("Started serial interface");
-
-	EEPROM.get(0, settings);
-	if (settings.version != EEPROM_VERSION)
-	{
-		loadSettings();
-	}
-
-	Logger::setLoglevel(Logger::Off);        //Debug = 0, Info = 1, Warn = 2, Error = 3, Off = 4
-
-	digitalWrite(led, HIGH);
-	bms.setPstrings(settings.Pstrings);
-	bms.setSensors(settings.IgnoreTemp, settings.IgnoreVolt);
-
-}
 void sendBalanceCommands(); // send CAN commands to balance cells
 
 
@@ -299,6 +202,7 @@ void printbmsstat()
 		SERIALCONSOLE.print(" OFF ");
 	}
 	SERIALCONSOLE.println();
+	Can0.mailboxStatus();
 }
 
 
@@ -387,15 +291,15 @@ void requestBICMdata()
 
 
 
-bool canread()
+void canread(const CAN_message_t& inMsg)
 {
-	if (Can0.read(inMsg)) {
+	// if (Can0.read(inMsg)) {
 		// Read data: len = data length, buf = data byte(s)
 
 		if (inMsg.id >= 0x460 && inMsg.id < 0x480) //do volt magic if ids are ones identified to be modules
 		{
 			//DISABLE debugging otherwise message ids take over window
-			//Serial.println(inMsg.id, HEX);
+			Serial.println(inMsg.id, HEX);
 			bms.decodecan(inMsg); //do volt magic if ids are ones identified to be modules
 		}
 		if (inMsg.id >= 0x7E0 && inMsg.id < 0x7F0) //do volt magic if ids are ones identified to be modules
@@ -429,10 +333,10 @@ bool canread()
 				Serial.println();
 			}
 		}
-		return true;
-	} else {
-		return false;
-	}
+	// 	return true;
+	// } else {
+	// 	return false;
+	// }
 }
 
 float getChargeVSetpoint()
@@ -587,9 +491,10 @@ void socFilter() {
 void loop()
 {
 	loopTimeMain = millis(); // get current loop time
-	while (canread())
-	{
-	}
+	// while (canread())
+	// {
+	// }
+	Can0.events();
 
 
 
@@ -749,4 +654,112 @@ void loop()
 	{
 		looptime1 = loopTimeMain;
 	}
+}
+
+void setup()
+{
+	delay(4000); //just for easy debugging. It takes a few seconds for USB to come up properly on most OS's
+	pinMode(KEY, INPUT_PULLDOWN);
+	pinMode(CHRG_EN, OUTPUT); // charge relay
+	pinMode(GAUGE, OUTPUT); // GAUGE LEVEL OUTPUT
+	pinMode(led, OUTPUT);
+
+	analogWriteFrequency(GAUGE, 1000);
+
+	Can0.begin();
+	Can0.setBaudRate(125000);
+	Can0.enableFIFO();
+	Can0.enableFIFOInterrupt();
+	Can0.onReceive(FIFO, canread);
+
+	Can1.begin();
+	Can1.setBaudRate(125000);
+	Can1.enableFIFO();
+	Can1.enableFIFOInterrupt();
+	Can1.onReceive(FIFO,canread);
+
+	//set filters for standard
+	// for (int i = 0; i < 8; i++)
+	// {
+	// 	Can0.getFilter(filter, i);
+	// 	filter.flags.extended = 0;
+	// 	Can0.setFilter(filter, i);
+	// }
+	//set filters for extended
+	// for (int i = 9; i < 13; i++)
+	// {
+	// 	Can0.getFilter(filter, i);
+	// 	filter.flags.extended = 1;
+	// 	Can0.setFilter(filter, i);
+	// }
+
+	//filter setup
+	for (int thisReading = 0; thisReading < numReadings; thisReading++) {
+		readings[thisReading] = 0;
+	}
+	/////////////////
+
+	SERIALCONSOLE.begin(115200);
+	SERIALCONSOLE.println("Starting up!");
+	SERIALCONSOLE.println("SimpBMS V2 Volt-Ampera");
+
+	//Serial2.begin(115200);
+	Serial3.begin(9600);
+
+	// Display reason the Teensy was last reset
+	// Serial.println();
+	// Serial.println("Reason for last Reset: ");
+
+	// if (RCM_SRS1 & RCM_SRS1_SACKERR)
+	// 	Serial.println("Stop Mode Acknowledge Error Reset");
+	// if (RCM_SRS1 & RCM_SRS1_MDM_AP)
+	// 	Serial.println("MDM-AP Reset");
+	// if (RCM_SRS1 & RCM_SRS1_SW)
+	// 	Serial.println("Software Reset"); // reboot with SCB_AIRCR = 0x05FA0004
+	// if (RCM_SRS1 & RCM_SRS1_LOCKUP)
+	// 	Serial.println("Core Lockup Event Reset");
+	// if (RCM_SRS0 & RCM_SRS0_POR)
+	// 	Serial.println("Power-on Reset"); // removed / applied power
+	// if (RCM_SRS0 & RCM_SRS0_PIN)
+	// 	Serial.println("External Pin Reset"); // Reboot with software download
+	// if (RCM_SRS0 & RCM_SRS0_WDOG)
+	// 	Serial.println("Watchdog(COP) Reset"); // WDT timed out
+	// if (RCM_SRS0 & RCM_SRS0_LOC)
+	// 	Serial.println("Loss of External Clock Reset");
+	// if (RCM_SRS0 & RCM_SRS0_LOL)
+	// 	Serial.println("Loss of Lock in PLL Reset");
+	// if (RCM_SRS0 & RCM_SRS0_LVD)
+	// 	Serial.println("Low-voltage Detect Reset");
+	// Serial.println();
+	///////////////////
+
+	// enable WDT
+	// noInterrupts();                 // don't allow interrupts while setting up WDOG
+	// WDOG_UNLOCK = WDOG_UNLOCK_SEQ1; // unlock access to WDOG registers
+	// WDOG_UNLOCK = WDOG_UNLOCK_SEQ2;
+	// delayMicroseconds(1); // Need to wait a bit..
+
+	// WDOG_TOVALH = 0x1000;
+	// WDOG_TOVALL = 0x0000;
+	// WDOG_PRESC = 0;
+	// WDOG_STCTRLH |= WDOG_STCTRLH_ALLOWUPDATE |
+	// 	WDOG_STCTRLH_WDOGEN | WDOG_STCTRLH_WAITEN |
+	// 	WDOG_STCTRLH_STOPEN | WDOG_STCTRLH_CLKSRC;
+	// interrupts();
+	/////////////////
+
+	SERIALCONSOLE.println("Started serial interface");
+
+	EEPROM.get(0, settings);
+	if (settings.version != EEPROM_VERSION)
+	{
+		loadSettings();
+	}
+
+	Logger::setLoglevel(Logger::Off);        //Debug = 0, Info = 1, Warn = 2, Error = 3, Off = 4
+
+	digitalWrite(led, HIGH);
+	bms.setPstrings(settings.Pstrings);
+	bms.setSensors(settings.IgnoreTemp, settings.IgnoreVolt);
+
 }

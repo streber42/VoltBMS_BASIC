@@ -36,7 +36,7 @@ void BMSModule::clearmodule()
   moduleAddress = 0;
 }
 
-float BMSModule::decodeCellVoltage(int cell, CAN_message_t &msg, int msb, int lsb)
+float BMSModule::decodeCellVoltage(int cell, const CAN_message_t &msg, int msb, int lsb)
 {
   if ((((msg.buf[msb] & 0x0F) << 8) + msg.buf[lsb]) > 0)
   {
@@ -44,7 +44,7 @@ float BMSModule::decodeCellVoltage(int cell, CAN_message_t &msg, int msb, int ls
   }
 }
 
-void BMSModule::decodecan(int Id, CAN_message_t &msg)
+void BMSModule::decodecan(int Id, const CAN_message_t &msg)
 {
   if (0x1 < moduleAddress && moduleAddress < 0xC) // handle 8-cell frames
   {

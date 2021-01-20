@@ -5,7 +5,7 @@ class BMSModule
 {
 public:
   BMSModule();
-  void decodecan(int Id, CAN_message_t &msg);
+  void decodecan(int Id, const CAN_message_t &msg);
   void readStatus();
   void clearmodule();
   int getscells();
@@ -60,5 +60,5 @@ private:
   int scells;
   int balstat;
   int cellsused;
-  float decodeCellVoltage(int cell, CAN_message_t &msg, int msb, int lsb);
+  float decodeCellVoltage(int cell, const CAN_message_t &msg, int msb, int lsb);
 };

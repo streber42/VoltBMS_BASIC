@@ -71,7 +71,7 @@ int BMSModuleManager::seriescells()
   return spack;
 }
 
-void BMSModuleManager::decodecan(CAN_message_t &msg)
+void BMSModuleManager::decodecan(const CAN_message_t &msg)
 {
   int Id, CMU, Cells = 0;
 

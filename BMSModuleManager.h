@@ -9,7 +9,7 @@ public:
   BMSModuleManager();
   int seriescells();
   void clearmodules();
-  void decodecan(CAN_message_t &msg);
+  void decodecan(const CAN_message_t &msg);
   void balanceCells();
   void getAllVoltTemp();
   void readSetpoints();
