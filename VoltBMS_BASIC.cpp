@@ -200,8 +200,8 @@ void printbmsstat() {
     SERIALCONSOLE.print(" OFF ");
   }
   SERIALCONSOLE.println();
-  Can0.mailboxStatus();
-  Can1.mailboxStatus();
+  // Can0.mailboxStatus();
+  // Can1.mailboxStatus();
 }
 
 void updateSOC() {
@@ -290,35 +290,13 @@ void requestBICMdata() {
   Can0.write(msg);
 }
 
-void canread1(const CAN_message_t& inMsg) {
-  if (inMsg.id == 0x200) {
-    SERIALCONSOLE.print(millis());
-    SERIALCONSOLE.print(" 200: ");
-    if (inMsg.buf == 0x020000) {
-    for (int i = 0; i < 200; i++) {
-      if (msgCache[i].id != 0) {
-        SERIALCONSOLE.println(msgCache[i].id,HEX);
-        Can1.write(msgCache[i]);
-      }
-    }
-    } else {
-      for (int i = 0; i < inMsg.len; i++) {
-      SERIALCONSOLE.print(inMsg.buf[i], HEX);
-      SERIALCONSOLE.print(" ");
-      }
-      SERIALCONSOLE.println();
-    }
-  } else {
-    SERIALCONSOLE.println(inMsg.id,HEX);
-  }
-}
+void canread1(const CAN_message_t& inMsg) {}
 
 void canread(const CAN_message_t& inMsg) {
   // if (Can0.read(inMsg)) {
   // Read data: len = data length, buf = data byte(s)
   // if (debug == 1) {
   //   SERIALCONSOLE.
-  msgCache[inMsg.id % 1000] = inMsg;
 
 
 
