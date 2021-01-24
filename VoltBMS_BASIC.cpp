@@ -114,7 +114,7 @@ void loadSettings() {
   settings.IgnoreTemp = 0;  // 0 - use both sensors, 1 or 2 only use that sensor
   settings.IgnoreVolt = 0.5;  //
   settings.balanceVoltage = 3.9f;
-  settings.balanceHyst = 0.005f;
+  settings.balanceHyst = 0.020f;
   settings.logLevel = 2;
   settings.CAP = 100;     // battery size in Ah
   settings.Pstrings = 1;  // strings in parallel used to divide voltage of pack
