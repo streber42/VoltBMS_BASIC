@@ -315,14 +315,14 @@ void BMSModule::updateBalance(float threshhold) {
     //     settings.balanceHyst) {
     if (bitRead(balance,i-1)) {
       // already balancing
-      if (getCellVoltage(i) > threshhold) {
+      if (getCellVoltage(i) >= threshhold - 0.025) {
         // do nothing, keep balancing
       } else {
         bitClear(balance, i-1);
       }
     } else {
       // not currenlty balancing
-      if (getCellVoltage(i) > threshhold + 0.025) {
+      if (getCellVoltage(i) >= threshhold) {
         // start balancing
         bitSet(balance,i-1);
       }

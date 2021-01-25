@@ -88,7 +88,7 @@ void BMSModuleManager::getAllVoltTemp() {
 void BMSModuleManager::updateBalanceCells() {
   for (int y = 0; y < 16; y++) {
     if (modules[y].isExisting() == 1) {
-      modules[y].updateBalance(getLowCellVolt());
+      modules[y].updateBalance(getHighCellVolt());
     }
   }
 }
