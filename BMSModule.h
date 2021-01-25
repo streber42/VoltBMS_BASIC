@@ -37,6 +37,9 @@ public:
   void settempsensor(int tempsensor);
   void setIgnoreCell(float Ignore);
   int getCellsUsed();
+  int getBalance();
+  void updateBalance(float threshhold);
+
 
 private:
   float cellVolt[33]; // calculated as 16 bit value * 6.250 / 16383 = volts
@@ -61,4 +64,5 @@ private:
   int balstat;
   int cellsused;
   float decodeCellVoltage(int cell, const CAN_message_t &msg, int msb, int lsb);
+  int balance;
 };

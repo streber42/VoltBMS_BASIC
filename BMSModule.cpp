@@ -21,6 +21,7 @@ BMSModule::BMSModule()
   exists = false;
   reset = false;
   moduleAddress = 0;
+  balance = 0;
 }
 
 void BMSModule::clearmodule()
@@ -34,6 +35,7 @@ void BMSModule::clearmodule()
   exists = false;
   reset = false;
   moduleAddress = 0;
+  balance = 0;
 }
 
 float BMSModule::decodeCellVoltage(int cell, const CAN_message_t &msg, int msb, int lsb)
@@ -303,3 +305,48 @@ void BMSModule::setIgnoreCell(float Ignore)
   Serial.print(Ignore);
   Serial.println();
 }
+
+void BMSModule::updateBalance(float threshhold) {
+  int low_cell = 0;
+  float lowestVolt = 5.0;
+  // balance = 0;
+  for (int i = 1; i < 9; i++) {
+    // if ((modules[y].getCellVoltage(i) - getLowCellVolt()) >
+    //     settings.balanceHyst) {
+    if (bitRead(balance,i-1)) {
+      // already balancing
+      if (getCellVoltage(i) > threshhold) {
+        // do nothing, keep balancing
+      } else {
+        bitClear(balance, i-1);
+      }
+    } else {
+      // not currenlty balancing
+      if (getCellVoltage(i) > threshhold + 0.025) {
+        // start balancing
+        bitSet(balance,i-1);
+      }
+    }
+    if (getCellVoltage(i) < lowestVolt) {
+        lowestVolt = getCellVoltage(i);
+        low_cell = i;
+    }
+      //        if (!last_one_balanced) {
+      //   balance = balance | (1 << (i - 1));
+      //   last_one_balanced = true;
+      // } else {
+      //   if (modules[y].getCellVoltage(i - 1) <
+      //       modules[y].getCellVoltage(i)) {
+      //     balance = balance | (1 << (i - 1));
+      //   }
+      //   last_one_balanced = false;
+      // }
+      // bitSet(balance,i-1);
+    // }
+  }
+  if (balance == 0xFF) {
+    bitClear(balance, low_cell);
+  }
+}
+
+int BMSModule::getBalance() { return balance; }

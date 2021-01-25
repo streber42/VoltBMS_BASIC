@@ -85,23 +85,32 @@ void BMSModuleManager::getAllVoltTemp() {
   if (packVolt < lowestPackVolt) lowestPackVolt = packVolt;
 }
 
+void BMSModuleManager::updateBalanceCells() {
+  for (int y = 0; y < 16; y++) {
+    if (modules[y].isExisting() == 1) {
+      modules[y].updateBalance(getLowCellVolt());
+    }
+  }
+}
+
 void BMSModuleManager::balanceCells() {
   for (int c = 0; c < 8; c++) {
     msg.buf[c] = 0;
   }
   for (int y = 1; y <= 9; y++) {
     if (modules[y].isExisting() == 1) {
-      int balance = 0;
-      int low_cell = 0;
-      float lowestVolt = 5.0;
+      // int balance = 0;
+      // int low_cell = 0;
+      // float lowestVolt = 5.0;
       // bool last_one_balanced = false;
-      for (int i = 1; i < 9; i++) {
-        if ((modules[y].getCellVoltage(i) - getLowCellVolt()) >
-            settings.balanceHyst) {
-          if (modules[y].getCellVoltage(i) < lowestVolt) {
-            lowestVolt = modules[y].getCellVoltage(i);
-            low_cell = i;
-          }
+      // for (int i = 1; i < 9; i++) {
+        // if ((modules[y].getCellVoltage(i) - getLowCellVolt()) >
+        //     settings.balanceHyst) {
+        // if (modules[y].getCellVoltage(i) > getAvgCellVolt()) {
+        //   if (modules[y].getCellVoltage(i) < lowestVolt) {
+        //     lowestVolt = modules[y].getCellVoltage(i);
+        //     low_cell = i;
+        //   }
           //        if (!last_one_balanced) {
           //   balance = balance | (1 << (i - 1));
           //   last_one_balanced = true;
@@ -112,20 +121,20 @@ void BMSModuleManager::balanceCells() {
           //   }
           //   last_one_balanced = false;
           // }
-          balance = balance | (1 << (i - 1));
-        }
-      }
-      if (balance == 0xFF) {
-        bitClear(balance, low_cell);
-      }
-      if (balance == 0x3F) {
-        bitClear(balance, low_cell);
-      }
+          // balance = balance | (1 << (i - 1));
+        // }
+      // }
+      // if (balance == 0xFF) {
+      //   bitClear(balance, low_cell);
+      // }
+      // if (balance == 0x3F) {
+      //   bitClear(balance, low_cell);
+      // }
       if (y == 9)  // hack for missing module #8
       {
-        msg.buf[y - 2] = balance;
+        msg.buf[y - 2] = modules[y].getBalance();
       } else {
-        msg.buf[y - 1] = balance;
+        msg.buf[y - 1] = modules[y].getBalance();
       }
     }
   }
@@ -152,43 +161,44 @@ void BMSModuleManager::balanceCells() {
   }
   for (int y = 10; y <= 15; y++) {
     if (modules[y].isExisting() == 1) {
-      int balance = 0;
-      int low_cell = 0;
-      float lowestVolt = 5.0;
+      // int balance = 0;
+      // int low_cell = 0;
+      // float lowestVolt = 5.0;
       // bool last_one_balanced = false;
-      for (int i = 1; i < 9; i++) {
-        if ((modules[y].getCellVoltage(i) - getLowCellVolt()) >
-            settings.balanceHyst) {
-          if (modules[y].getCellVoltage(i) < lowestVolt) {
-            lowestVolt = modules[y].getCellVoltage(i);
-            low_cell = i;
-          }
-          // if (!last_one_balanced) {
-          //   balance =
-          //       balance |
-          //       (1 << (i - 1));  // 8 cell internal module bitshift correctly
-          //   last_one_balanced = true;
-          // } else {
-          //   if (modules[y].getCellVoltage(i - 1) <
-          //       modules[y].getCellVoltage(i)) {
-          //     balance = balance | (1 << (i - 1));
-          //   }
-          //   last_one_balanced = false;
-          // }
-          balance = balance | (1 << (i - 1));
-        }
-      }
-      if (balance == 0xFF) {
-        bitClear(balance, low_cell);
-      }
-      if (balance == 0x3F) {
-        bitClear(balance, low_cell);
-      }
+      // for (int i = 1; i < 9; i++) {
+      //   if (modules[y].getCellVoltage(i) > getAvgCellVolt()) {
+      //   // if ((modules[y].getCellVoltage(i) - getLowCellVolt()) >
+      //   //     settings.balanceHyst) {
+      //     if (modules[y].getCellVoltage(i) < lowestVolt) {
+      //       lowestVolt = modules[y].getCellVoltage(i);
+      //       low_cell = i;
+      //     }
+      //     // if (!last_one_balanced) {
+      //     //   balance =
+      //     //       balance |
+      //     //       (1 << (i - 1));  // 8 cell internal module bitshift correctly
+      //     //   last_one_balanced = true;
+      //     // } else {
+      //     //   if (modules[y].getCellVoltage(i - 1) <
+      //     //       modules[y].getCellVoltage(i)) {
+      //     //     balance = balance | (1 << (i - 1));
+      //     //   }
+      //     //   last_one_balanced = false;
+      //     // }
+      //     balance = balance | (1 << (i - 1));
+      //   }
+      // }
+      // if (balance == 0xFF) {
+      //   bitClear(balance, low_cell);
+      // }
+      // if (balance == 0x3F) {
+      //   bitClear(balance, low_cell);
+      // }
       if (y > 11)  // hack for missing module #12
       {
-        msg.buf[y - 11] = balance;
+        msg.buf[y - 11] = modules[y].getBalance();
       } else {
-        msg.buf[y - 10] = balance;
+        msg.buf[y - 10] = modules[y].getBalance();
       }
     }
   }
@@ -464,11 +474,13 @@ void BMSModuleManager::printPackDetails(int digits, bool port) {
         } else {
           for (int i = 1; i < modules[y].getCellsUsed() + 1; i++) {
             // if (cellNum < 10) SERIALCONSOLE.print(" ");
-            float delta = modules[y].getCellVoltage(i) - getLowCellVolt();
+            // float delta = modules[y].getCellVoltage(i) - getLowCellVolt();
+            float delta = modules[y].getCellVoltage(i) - getAvgCellVolt();
+            // float delta = getHighCellVolt() - modules[y].getCellVoltage(i);
             SERIALCONSOLE.print("  Cell-");
             SERIALCONSOLE.printf("%02d", 1 + cellNum++);
             SERIALCONSOLE.print(": ");
-            if (delta > settings.balanceHyst) {
+            if (bitRead(modules[y].getBalance(),i)) {
               SERIALCONSOLE.print("\033[31m");
             } else {
               SERIALCONSOLE.print("\033[32m");
