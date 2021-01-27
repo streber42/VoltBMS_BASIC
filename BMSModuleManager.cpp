@@ -88,7 +88,14 @@ void BMSModuleManager::getAllVoltTemp() {
 void BMSModuleManager::updateBalanceCells() {
   for (int y = 0; y < 16; y++) {
     if (modules[y].isExisting() == 1) {
-      modules[y].updateBalance(getHighCellVolt());
+      modules[y].updateBalance(getLowCellVolt(), getAvgCellVolt(), getHighCellVolt());
+    }
+  }
+}
+void BMSModuleManager::clearBalanceCells() {
+  for (int y = 0; y < 16; y++) {
+    if (modules[y].isExisting() == 1) {
+      modules[y].clearBalance();
     }
   }
 }
@@ -474,13 +481,13 @@ void BMSModuleManager::printPackDetails(int digits, bool port) {
         } else {
           for (int i = 1; i < modules[y].getCellsUsed() + 1; i++) {
             // if (cellNum < 10) SERIALCONSOLE.print(" ");
-            // float delta = modules[y].getCellVoltage(i) - getLowCellVolt();
-            float delta = modules[y].getCellVoltage(i) - getAvgCellVolt();
+            float delta = modules[y].getCellVoltage(i) - getLowCellVolt();
+            // float delta = modules[y].getCellVoltage(i) - getAvgCellVolt();
             // float delta = getHighCellVolt() - modules[y].getCellVoltage(i);
             SERIALCONSOLE.print("  Cell-");
             SERIALCONSOLE.printf("%02d", 1 + cellNum++);
             SERIALCONSOLE.print(": ");
-            if (bitRead(modules[y].getBalance(),i)) {
+            if (bitRead(modules[y].getBalance(),i-1)) {
               SERIALCONSOLE.print("\033[31m");
             } else {
               SERIALCONSOLE.print("\033[32m");

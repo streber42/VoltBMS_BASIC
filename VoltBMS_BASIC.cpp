@@ -77,6 +77,7 @@ float ampsecond;
 unsigned long lasttime;
 unsigned long loopTimeMain, looptime, UnderTime, looptime1, cleartime,
     loopTimeBalance = 0;  // ms
+int balanceStep = 0;
 
 // Variables for SOC calc
 int SOC = 100;  // State of Charge
@@ -791,13 +792,28 @@ void loop() {
     loopTimeBalance = loopTimeMain;            // reset loop time
     if (balancecells && loopTimeMain > 15000)  // delay balancing
     {
-      sendBalanceCommands();
+      if (balanceStep < 10) {
+        requestBICMdata();
+        balanceStep++;
+      } else if (balanceStep == 10) {
+        bms.updateBalanceCells();
+        sendBalanceCommands();
+        balanceStep++;
+      } else if (balanceStep > 10) {
+        sendBalanceCommands();
+        if (balanceStep >= 60) {
+          balanceStep = 0;
+          bms.clearBalanceCells();
+        } else {
+          balanceStep++;
+        }
+      }
     }
   }
 
   if (millis() - cleartime > 5000) {
     cleartime = millis();
-    bms.updateBalanceCells();
+    // bms.updateBalanceCells();
   }
 
   if (loopTimeMain - looptime1 > settings.chargerspd) {

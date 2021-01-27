@@ -12,6 +12,7 @@ public:
   void decodecan(const CAN_message_t &msg);
   void balanceCells();
   void updateBalanceCells();
+  void clearBalanceCells();
   void getAllVoltTemp();
   void readSetpoints();
   void setBatteryID(int id);

@@ -38,7 +38,8 @@ public:
   void setIgnoreCell(float Ignore);
   int getCellsUsed();
   int getBalance();
-  void updateBalance(float threshhold);
+  void updateBalance(float min, float avg, float max);
+  void clearBalance();
 
 
 private:
