@@ -246,7 +246,7 @@ void BMSModule::updateBalance(float min, float avg, float max) {
         }
       }
     } else {
-      if (getCellVoltage(i) > 4.075f) {  // (max - settings.balanceHyst)) {
+      if (getCellVoltage(i)  == max) {  // (max - settings.balanceHyst)) {
         bitSet(balance, i - 1);
         // i++;
       } else {

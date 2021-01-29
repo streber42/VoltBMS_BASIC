@@ -329,9 +329,11 @@ void maketemp(CAN_message_t& temp_msg) {
 
 void canread1(const CAN_message_t& inMsg) {
   if (!balancecells) {
-    Can0.write(inMsg);
+    if (Can0.write(inMsg) != 1) {
+      SERIALCONSOLE.println("can0 write error");
+    }
   } else {
-    if (inMsg.id == 0x200) {
+    if (inMsg.id == 0x276) {
       CAN_message_t six_cell_msg;
       CAN_message_t eight_cell_msg;
       CAN_message_t temp_msg;
@@ -456,9 +458,11 @@ void canread(const CAN_message_t& inMsg) {
   // if (debug == 1) {
   //   SERIALCONSOLE.
 
-  if (!balancecells) {
-    Can1.write(inMsg);
-  }
+  // if (!balancecells) {
+    if (Can1.write(inMsg) != 1) {
+      SERIALCONSOLE.println("can1 write error");
+    }
+  // }
 
   if (inMsg.id >= 0x460 &&
       inMsg.id <
@@ -648,8 +652,8 @@ void loop() {
   // while (canread())
   // {
   // }
-  Can0.events();
-  Can1.events();
+  while (Can0.events() > 0) {}
+  while (Can1.events() > 0) {}
 
   // MAIN STATE MACHINE
   switch (bmsstatus) {
@@ -783,7 +787,7 @@ void loop() {
         // ErrorReason = 3;
       }
     }
-    btUpdate();
+    // btUpdate();
     resetwdog();
   }
 
@@ -869,7 +873,7 @@ void setup() {
   SERIALCONSOLE.println("SimpBMS V2 Volt-Ampera");
 
   // Serial2.begin(115200);
-  Serial3.begin(9600);
+  Serial3.begin(500000);
 
   // Display reason the Teensy was last reset
   // Serial.println();
