@@ -338,3 +338,5 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
+__vm/Compile.vmps.xml
+__vm/Upload.vmps.xml

@@ -277,7 +277,7 @@ float BMSModuleManager::getAvgTemperature()
   {
     if (modules[x].isExisting())
     {
-      if (modules[x].getAvgTemp() > 0)
+      if (modules[x].getAvgTemp() > -70)
       {
         numFoundModules++;
         avg += modules[x].getAvgTemp();
@@ -289,10 +289,15 @@ float BMSModuleManager::getAvgTemperature()
         {
           lowTemp = modules[x].getLowTemp();
         }
+        if (modules[x].getAvgTemp() == 0)
+        {
+            y++;
+        }
       }
     }
   }
-  avg = avg / (float)(numFoundModules);
+
+  avg = avg / (float)(numFoundModules-y);
 
   return avg;
 }
