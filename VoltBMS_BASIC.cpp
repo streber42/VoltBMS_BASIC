@@ -46,7 +46,6 @@ int firmver = 666;
 // Simple BMS V2 wiring//  EDITED
 const int KEY = 17;     // input 1 - high active
 const int CHRG_EN = 6;  // output 1 - high active
-const int GAUGE = 20;   // GUAGE LEVEL OUTPUT
 const int led = 13;
 
 byte bmsstatus = 0;
@@ -58,14 +57,6 @@ byte bmsstatus = 0;
 #define Error 5
 //
 int ErrorReason = 0;
-float gaugelevel;
-
-// gauge filtering
-const int numReadings = 10;
-int readings[numReadings];  // the readings from the analog input
-int readIndex = 0;          // the index of the current reading
-int total = 0;              // the running total
-int average = 0;            // the average
 
 // variables for output control
 uint16_t SOH = 100;  // SOH place holder
@@ -92,8 +83,6 @@ int incomingByte = 0;
 int x = 0;
 bool balancecells = false;
 int cellspresent = 0;
-
-CAN_message_t msgCache[200];
 
 // Debugging modes//////////////////
 int debug = 1;
@@ -142,12 +131,6 @@ CAN_message_t msg;
 // CAN_message_t inMsg;
 // CAN_filter_t filter;
 
-void sendBalanceCommands();  // send CAN commands to balance cells
-
-void gaugeupdate() {
-  analogWrite(GAUGE,
-              map(average, 0, 100, settings.gaugelow, settings.gaugehigh));
-}
 
 void printbmsstat() {
   SERIALCONSOLE.println();
@@ -265,205 +248,43 @@ void SOCcharged(int percent) {
                          // improve with auto correction for capcity.
 }
 
-void sendcommand();  // send BICM trigger message
-
-void sendBalanceCommands()  // send CAN commands to balance cells
-{
-  sendcommand();
-  bms.balanceCells();
-}
-
-void requestBICMdata() {
-  sendcommand();
-
-  for (int c = 0; c < 8; c++) {
-    msg.buf[c] = 0;
-  }
-  msg.id = 0x300;
-  msg.len = 8;
-  Can0.write(msg);
-
-  // for (int c = 0; c < 8; c++) {
-  //   msg.buf[c] = 0;
-  // }
-  msg.id = 0x310;
-  msg.len = 5;
-  Can0.write(msg);
-}
-
-void make460(CAN_message_t& msg) {
-  msg.id = 0x460;
-  msg.len = 6;
-  msg.buf[0] = 0x8C;
-  msg.buf[1] = 0x92;
-  msg.buf[2] = 0x4C;
-  msg.buf[3] = 0x92;
-  msg.buf[4] = 0xCC;
-  msg.buf[5] = 0x9E;
-  msg.seq = true;
-}
-
-void make461(CAN_message_t& eight_cell_msg) {
-  eight_cell_msg.id = 0x461;
-  eight_cell_msg.len = 8;
-  eight_cell_msg.seq = true;
-  eight_cell_msg.buf[0] = 0x8C;
-  eight_cell_msg.buf[1] = 0x9A;
-  eight_cell_msg.buf[2] = 0x4C;
-  eight_cell_msg.buf[3] = 0x9A;
-  eight_cell_msg.buf[4] = 0xCC;
-  eight_cell_msg.buf[5] = 0xAA;
-  eight_cell_msg.buf[6] = 0x0C;
-  eight_cell_msg.buf[7] = 0xAD;
-}
-
-void maketemp(CAN_message_t& temp_msg) {
-  temp_msg.id = 0x7E0;
-  temp_msg.len = 8;
-  uint8_t empty_buffer[8] = {0x00};
-  memcpy(temp_msg.buf, empty_buffer, sizeof(empty_buffer));
-  temp_msg.buf[0] = 0x4D;
-  temp_msg.buf[1] = 0x5E;
-  temp_msg.buf[7] = 0x6C;
-}
-
-void canread1(const CAN_message_t& inMsg) {
-  if (!balancecells) {
-    if (Can0.write(inMsg) != 1) {
-      SERIALCONSOLE.println("can0 write error");
-    }
-  } else {
-    if (inMsg.id == 0x276) {
-      CAN_message_t six_cell_msg;
-      CAN_message_t eight_cell_msg;
-      CAN_message_t temp_msg;
-      make460(six_cell_msg);
-      make461(eight_cell_msg);
-      maketemp(temp_msg);
-      for (int i = 0x0; i < 0xF; i++) {
-        if ((i == 7) || (i == B)) {
-          continue;
-        } else if (0x1 < i && i < 0xC) {  // handle 8-cell frames
-          eight_cell_msg.id = 0x460 + i;
-          Can1.write(eight_cell_msg);
-          eight_cell_msg.id = 0x470 + i;
-          Can1.write(eight_cell_msg);
-        } else {
-          six_cell_msg.id = 0x460 + i;
-          Can1.write(six_cell_msg);
-          six_cell_msg.id = 0x470 + i;
-          Can1.write(six_cell_msg);
-        }
-        temp_msg.id = 0x7E0 + i;
-        Can1.write(temp_msg);
-        while (Can1.events() > 0) {
+void canread1(CAN_message_t inMsg) {
+  // If we are balancing, then fill in data for 300 and 310, otherwise just echo
+  if (balancecells && balanceStep > 10) {
+    if (inMsg.id == 0x300) {
+      for (int y = 1; y <= 9; y++) {
+        if (bms.modules[y].isExisting() == 1) {
+          if (y == 9)  // hack for missing module #8
+          {
+            inMsg.buf[y - 2] = bms.modules[y].getBalance();
+          } else {
+            msg.buf[y - 1] = bms.modules[y].getBalance();
+          }
         }
       }
-      // CAN_message_t six_cell_msg;
-      // make460(six_cell_msg);
-      // six_cell_msg.id = 0x470;
-      // six_cell_msg.buf[1] = 0x9F;
-      // six_cell_msg.buf[2] = 0x0C;
-      // six_cell_msg.buf[3] = 0x9D;
-      // six_cell_msg.buf[4] = 0x0C;
-      // six_cell_msg.buf[5] = 0x9E;
-      // Can1.write(six_cell_msg);
-      // make460(six_cell_msg);
-      // six_cell_msg.id = 0x460;
-      // six_cell_msg.len = 6;
-      // six_cell_msg.buf[0] = 0x8C;
-      // six_cell_msg.buf[1] = 0x92;
-      // six_cell_msg.buf[2] = 0x4C;
-      // six_cell_msg.buf[3] = 0x92;
-      // six_cell_msg.buf[4] = 0xCC;
-      // six_cell_msg.buf[5] = 0x9E;
-      // six_cell_msg.seq = true;
-      // Can1.write(six_cell_msg);
-      // CAN_message_t temp_msg;
-      // temp_msg.id = 0x7E0;
-      // temp_msg.len = 8;
-      // uint8_t empty_buffer[8] = {0x00};
-      // memcpy(temp_msg.buf, empty_buffer, sizeof(empty_buffer));
-      // temp_msg.buf[0] = 0x4D;
-      // temp_msg.buf[1] = 0x5E;
-      // temp_msg.buf[7] = 0x6C;
-      // Can1.write(temp_msg);
-      // CAN_message_t eight_cell_msg;
-      // eight_cell_msg.id = 0x461;
-      // eight_cell_msg.len = 8;
-      // eight_cell_msg.seq = true;
-      // eight_cell_msg.buf[0] = 0x8C;
-      // eight_cell_msg.buf[1] = 0x9A;
-      // eight_cell_msg.buf[2] = 0x4C;
-      // eight_cell_msg.buf[3] = 0x9A;
-      // eight_cell_msg.buf[4] = 0xCC;
-      // eight_cell_msg.buf[5] = 0xAA;
-      // eight_cell_msg.buf[6] = 0x0C;
-      // eight_cell_msg.buf[7] = 0xAD;
-      // Can1.write(eight_cell_msg);
-      // eight_cell_msg.id = 0x471;
-      // eight_cell_msg.buf[1] = 0xAB;
-      // eight_cell_msg.buf[2] = 0x0C;
-      // eight_cell_msg.buf[3] = 0xAF;
-      // eight_cell_msg.buf[4] = 0x0C;
-      // eight_cell_msg.buf[5] = 0xAC;
-      // eight_cell_msg.buf[6] = 0x0C;
-      // eight_cell_msg.buf[7] = 0xAB;
-      // Can1.write(eight_cell_msg);
-      // temp_msg.id = 0x7E1;
-      // temp_msg.buf[1] = 0x63;
-      // temp_msg.buf[7] = 0x72;
-      // Can1.write(temp_msg);
-      // 19376490,00000462,false,0,8,8C,8E,4C,8E,CC,99,0C,9A
-      // 19377016,00000310,false,1,5,00,00,00,00,00,00,00,00
-      // 19379234,000007E2,false,0,8,4D,53,0D,5F,00,00,00,CF
-      // 19380137,00000472,false,0,8,8C,98,0C,9A,0C,99,0C,99
-      // 19382913,00000463,false,0,8,8C,8E,4C,8E,CC,99,0C,9A
-      // 19383825,00000473,false,0,8,8C,98,0C,9A,0C,99,0C,9A
-      // 19384785,000007E3,false,0,8,4D,74,00,00,00,00,00,85
-      // 19386488,00000464,false,0,8,8C,AD,4C,AB,CC,B0,0C,AE
-      // 19387400,00000474,false,0,8,8C,AE,0C,B1,0C,B2,0C,B3
-      // 19388376,000007E4,false,0,8,4D,6D,00,00,00,00,00,7F
-      // 19391727,00000465,false,0,8,8C,9F,4C,9F,CC,AE,0C,B0
-      // 19392631,00000475,false,0,8,8C,AD,0C,AC,0C,AE,0C,AE
-      // 19393584,000007E5,false,0,8,4D,42,0D,4E,00,00,00,B0
-      // 19397087,00000466,false,0,8,8C,AD,4C,AC,CC,AE,0C,AE
-      // 19397991,00000476,false,0,8,8C,B0,0C,B1,0C,B1,0C,B4
-      // 19398951,000007E6,false,0,8,4D,5B,00,00,00,00,00,6F
-      // 19421421,00000468,false,0,8,8C,B2,4C,B0,CC,B6,0C,B5
-      // 19422333,00000478,false,0,8,8C,B4,0C,B6,0C,B5,0C,BB
-      // 19423309,000007E8,false,0,8,4D,73,00,00,00,00,00,89
-      // 19426245,00000469,false,0,8,8C,B0,4C,AE,CC,C4,0C,C7
-      // 19427165,00000479,false,0,8,8C,C6,0C,C6,0C,C4,0C,C9
-      // 19428109,000007E9,false,0,8,4D,2E,0D,36,00,00,00,88
-      // 19431141,0000046A,false,0,8,8C,AF,4C,AE,CC,B5,0C,B4
-      // 19432045,0000047A,false,0,8,8C,B7,0C,B7,0C,B4,0C,B6
-      // 19433013,000007EA,false,0,8,4D,53,00,00,00,00,00,6B
-      // 19439700,0000046C,false,0,6,8C,AE,4C,AC,CC,B5,00,00
-      // 19440500,0000047C,false,0,6,8C,B6,0C,B2,0C,B9,00,00
-      // 19441508,000007EC,false,0,8,4D,53,00,00,00,00,00,6D
-      // 19444372,0000046D,false,0,6,8C,B2,4C,B0,CC,C1,00,00
-      // 19445180,0000047D,false,0,6,8C,BE,0C,BE,0C,C5,00,00
-      // 19446164,000007ED,false,0,8,4D,43,00,00,00,00,00,5E
-      // 19449379,0000046E,false,0,6,8C,B0,4C,B1,CC,B9,00,00
-      // 19450171,0000047E,false,0,6,8C,B3,0C,BA,0C,BA,00,00
-      // 19451180,000007EE,false,0,8,4D,62,00,00,00,00,00,7E
+    } else if (inMsg.id == 0x310) {
+      for (int y = 10; y <= 15; y++) {
+        if (bms.modules[y].isExisting() == 1) {
+          if (y > 11)  // hack for missing module #12
+          {
+            inMsg.buf[y - 11] = bms.modules[y].getBalance();
+          } else {
+            inMsg.buf[y - 10] = bms.modules[y].getBalance();
+          }
+        }
+      }
     }
+  }
+  if (Can0.write(inMsg) != 1) {
+    SERIALCONSOLE.println("can0 write error1");
   }
 }
 
-void canread(const CAN_message_t& inMsg) {
-  // if (Can0.read(inMsg)) {
-  // Read data: len = data length, buf = data byte(s)
-  // if (debug == 1) {
-  //   SERIALCONSOLE.
-
-  // if (!balancecells) {
-    if (Can1.write(inMsg) != 1) {
-      SERIALCONSOLE.println("can1 write error");
-    }
-  // }
-
+void canread(CAN_message_t inMsg) {
+  // Echo to Can1
+  if (Can1.write(inMsg) != 1) {
+    SERIALCONSOLE.println("can1 write error0");
+  }
   if (inMsg.id >= 0x460 &&
       inMsg.id <
           0x480)  // do volt magic if ids are ones identified to be modules
@@ -484,8 +305,8 @@ void canread(const CAN_message_t& inMsg) {
     if (candebug == 1) {
       Serial.print(millis());
       if ((inMsg.id & 0x80000000) ==
-          0x80000000)  // Determine if ID is standard (11 bits) or extended (29
-                       // bits)
+          0x80000000)  // Determine if ID is standard (11 bits) or extended
+                       // (29 bits)
         sprintf(msgString, "Extended ID: 0x%.8lX  DLC: %1d  Data:",
                 (inMsg.id & 0x1FFFFFFF), inMsg.len);
       else
@@ -506,31 +327,19 @@ void canread(const CAN_message_t& inMsg) {
       Serial.println();
     }
   }
-  // 	return true;
-  // } else {
-  // 	return false;
-  // }
 }
 
 float getChargeVSetpoint() {
   return settings.ChargeVsetpoint * (maxchargepercent / 100);
 }
 
-void sendcommand()  // send BICM trigger message
-{
-  msg.id = 0x200;
-  msg.len = 3;
-  msg.buf[0] = 0x02;
-  msg.buf[1] = 0x00;
-  msg.buf[2] = 0x00;
-  Can0.write(msg);
-}
-
 void resetwdog() {
-  // noInterrupts(); //   No - reset WDT
-  // WDOG_REFRESH = 0xA602;
-  // WDOG_REFRESH = 0xB480;
-  // interrupts();
+#ifdef _TEENSY_3_
+  noInterrupts();  //   No - reset WDT
+  WDOG_REFRESH = 0xA602;
+  WDOG_REFRESH = 0xB480;
+  interrupts();
+#endif
 }
 
 void btUpdate() {
@@ -629,31 +438,22 @@ void btUpdate() {
   }
 }
 
-void socFilter() {
-  // subtract the last reading:
-  total = total - readings[readIndex];
-  // read from the sensor:
-  readings[readIndex] = SOC;
-  // add the reading to the total:
-  total = total + readings[readIndex];
-  // advance to the next position in the array:
-  readIndex = readIndex + 1;
-  // if we're at the end of the array...
-  if (readIndex >= numReadings) {
-    // ...wrap around to the beginning:
-    readIndex = 0;
-  }
-  // calculate the average:
-  average = total / numReadings;
-}
-
 void loop() {
+  if (millis() - loopTimeMain > 10) {
+    SERIALCONSOLE.printf("SL: %d\n", millis() - loopTimeMain);
+  }
   loopTimeMain = millis();  // get current loop time
-  // while (canread())
-  // {
-  // }
-  while (Can0.events() > 0) {}
-  while (Can1.events() > 0) {}
+  while (Can0.read(msg)) {
+    canread(msg);
+  }
+  while (Can0.events() > 0) {
+  }
+
+  while (Can1.read(msg)) {
+    canread1(msg);
+  }
+  while (Can1.events() > 0) {
+  }
 
   // MAIN STATE MACHINE
   switch (bmsstatus) {
@@ -682,8 +482,8 @@ void loop() {
 
       if (bms.getHighCellVolt() <
           (settings.ChargeVsetpoint -
-           settings.ChargeHys))  // detect AC present for charging and check not
-                                 // balancing
+           settings.ChargeHys))  // detect AC present for charging and check
+                                 // not balancing
       {
         bmsstatus = Charge;
       }
@@ -752,7 +552,7 @@ void loop() {
     if (bms.getLowCellVolt() < settings.UnderVSetpoint ||
         bms.getHighCellVolt() < settings.UnderVSetpoint) {
       if (UnderTime > millis())  // check is last time not undervoltage is
-                                 // longer thatn UnderDur ago   murderdeathkill
+                                 // longer thatn UnderDur ago murderdeathkill
       {
         bmsstatus = Error;
         ErrorReason = 2;
@@ -765,8 +565,6 @@ void loop() {
     printbmsstat();
     bms.printPackDetails(debugdigits, 0);
     updateSOC();
-    socFilter();
-    gaugeupdate();
 
     // if (!balancecells)
     //   requestBICMdata();  // request data here only if not balancing.
@@ -797,14 +595,11 @@ void loop() {
     if (balancecells && loopTimeMain > 15000)  // delay balancing
     {
       if (balanceStep < 10) {
-        requestBICMdata();
         balanceStep++;
       } else if (balanceStep == 10) {
         bms.updateBalanceCells();
-        sendBalanceCommands();
         balanceStep++;
       } else if (balanceStep > 10) {
-        sendBalanceCommands();
         if (balanceStep >= 60) {
           balanceStep = 0;
           bms.clearBalanceCells();
@@ -817,7 +612,6 @@ void loop() {
 
   if (millis() - cleartime > 5000) {
     cleartime = millis();
-    // bms.updateBalanceCells();
   }
 
   if (loopTimeMain - looptime1 > settings.chargerspd) {
@@ -830,22 +624,15 @@ void setup() {
                 // come up properly on most OS's
   pinMode(KEY, INPUT_PULLDOWN);
   pinMode(CHRG_EN, OUTPUT);  // charge relay
-  pinMode(GAUGE, OUTPUT);    // GAUGE LEVEL OUTPUT
   pinMode(led, OUTPUT);
-
-  analogWriteFrequency(GAUGE, 1000);
 
   Can0.begin();
   Can0.setBaudRate(125000);
   Can0.enableFIFO();
-  Can0.enableFIFOInterrupt();
-  Can0.onReceive(FIFO, canread);
 
   Can1.begin();
   Can1.setBaudRate(125000);
   Can1.enableFIFO();
-  Can1.enableFIFOInterrupt();
-  Can1.onReceive(FIFO, canread1);
 
   // set filters for standard
   // for (int i = 0; i < 8; i++)
@@ -861,11 +648,6 @@ void setup() {
   // 	filter.flags.extended = 1;
   // 	Can0.setFilter(filter, i);
   // }
-
-  // filter setup
-  for (int thisReading = 0; thisReading < numReadings; thisReading++) {
-    readings[thisReading] = 0;
-  }
   /////////////////
 
   SERIALCONSOLE.begin(115200);
@@ -873,49 +655,44 @@ void setup() {
   SERIALCONSOLE.println("SimpBMS V2 Volt-Ampera");
 
   // Serial2.begin(115200);
-  Serial3.begin(500000);
+  // Serial3.begin(500000);
 
-  // Display reason the Teensy was last reset
-  // Serial.println();
-  // Serial.println("Reason for last Reset: ");
+#ifdef _TEENSY_3_
+  Display reason the Teensy was last reset Serial.println();
+  Serial.println("Reason for last Reset: ");
 
-  // if (RCM_SRS1 & RCM_SRS1_SACKERR)
-  // 	Serial.println("Stop Mode Acknowledge Error Reset");
-  // if (RCM_SRS1 & RCM_SRS1_MDM_AP)
-  // 	Serial.println("MDM-AP Reset");
-  // if (RCM_SRS1 & RCM_SRS1_SW)
-  // 	Serial.println("Software Reset"); // reboot with SCB_AIRCR = 0x05FA0004
-  // if (RCM_SRS1 & RCM_SRS1_LOCKUP)
-  // 	Serial.println("Core Lockup Event Reset");
-  // if (RCM_SRS0 & RCM_SRS0_POR)
-  // 	Serial.println("Power-on Reset"); // removed / applied power
-  // if (RCM_SRS0 & RCM_SRS0_PIN)
-  // 	Serial.println("External Pin Reset"); // Reboot with software download
-  // if (RCM_SRS0 & RCM_SRS0_WDOG)
-  // 	Serial.println("Watchdog(COP) Reset"); // WDT timed out
-  // if (RCM_SRS0 & RCM_SRS0_LOC)
-  // 	Serial.println("Loss of External Clock Reset");
-  // if (RCM_SRS0 & RCM_SRS0_LOL)
-  // 	Serial.println("Loss of Lock in PLL Reset");
-  // if (RCM_SRS0 & RCM_SRS0_LVD)
-  // 	Serial.println("Low-voltage Detect Reset");
-  // Serial.println();
-  ///////////////////
-
-  // enable WDT
-  // noInterrupts();                 // don't allow interrupts while setting up
-  // WDOG WDOG_UNLOCK = WDOG_UNLOCK_SEQ1; // unlock access to WDOG registers
-  // WDOG_UNLOCK = WDOG_UNLOCK_SEQ2;
-  // delayMicroseconds(1); // Need to wait a bit..
-
-  // WDOG_TOVALH = 0x1000;
-  // WDOG_TOVALL = 0x0000;
-  // WDOG_PRESC = 0;
-  // WDOG_STCTRLH |= WDOG_STCTRLH_ALLOWUPDATE |
-  // 	WDOG_STCTRLH_WDOGEN | WDOG_STCTRLH_WAITEN |
-  // 	WDOG_STCTRLH_STOPEN | WDOG_STCTRLH_CLKSRC;
-  // interrupts();
+  if (RCM_SRS1 & RCM_SRS1_SACKERR)
+    Serial.println("Stop Mode Acknowledge Error Reset");
+  if (RCM_SRS1 & RCM_SRS1_MDM_AP) Serial.println("MDM-AP Reset");
+  if (RCM_SRS1 & RCM_SRS1_SW)
+    Serial.println("Software Reset");  // reboot with SCB_AIRCR = 0x05FA0004
+  if (RCM_SRS1 & RCM_SRS1_LOCKUP) Serial.println("Core Lockup Event Reset");
+  if (RCM_SRS0 & RCM_SRS0_POR)
+    Serial.println("Power-on Reset");  // removed / applied power
+  if (RCM_SRS0 & RCM_SRS0_PIN)
+    Serial.println("External Pin Reset");  // Reboot with software download
+  if (RCM_SRS0 & RCM_SRS0_WDOG)
+    Serial.println("Watchdog(COP) Reset");  // WDT timed out
+  if (RCM_SRS0 & RCM_SRS0_LOC) Serial.println("Loss of External Clock Reset");
+  if (RCM_SRS0 & RCM_SRS0_LOL) Serial.println("Loss of Lock in PLL Reset");
+  if (RCM_SRS0 & RCM_SRS0_LVD) Serial.println("Low-voltage Detect Reset");
+  Serial.println();
   /////////////////
+
+  enable WDT noInterrupts();  // don't allow interrupts while setting up
+  WDOG WDOG_UNLOCK = WDOG_UNLOCK_SEQ1;  // unlock access to WDOG registers
+  WDOG_UNLOCK = WDOG_UNLOCK_SEQ2;
+  delayMicroseconds(1);  // Need to wait a bit..
+
+  WDOG_TOVALH = 0x1000;
+  WDOG_TOVALL = 0x0000;
+  WDOG_PRESC = 0;
+  WDOG_STCTRLH |= WDOG_STCTRLH_ALLOWUPDATE | WDOG_STCTRLH_WDOGEN |
+                  WDOG_STCTRLH_WAITEN | WDOG_STCTRLH_STOPEN |
+                  WDOG_STCTRLH_CLKSRC;
+  interrupts();
+///////////////
+#endif
 
   SERIALCONSOLE.println("Started serial interface");
 

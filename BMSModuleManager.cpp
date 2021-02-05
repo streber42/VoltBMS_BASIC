@@ -106,37 +106,6 @@ void BMSModuleManager::balanceCells() {
   }
   for (int y = 1; y <= 9; y++) {
     if (modules[y].isExisting() == 1) {
-      // int balance = 0;
-      // int low_cell = 0;
-      // float lowestVolt = 5.0;
-      // bool last_one_balanced = false;
-      // for (int i = 1; i < 9; i++) {
-        // if ((modules[y].getCellVoltage(i) - getLowCellVolt()) >
-        //     settings.balanceHyst) {
-        // if (modules[y].getCellVoltage(i) > getAvgCellVolt()) {
-        //   if (modules[y].getCellVoltage(i) < lowestVolt) {
-        //     lowestVolt = modules[y].getCellVoltage(i);
-        //     low_cell = i;
-        //   }
-          //        if (!last_one_balanced) {
-          //   balance = balance | (1 << (i - 1));
-          //   last_one_balanced = true;
-          // } else {
-          //   if (modules[y].getCellVoltage(i - 1) <
-          //       modules[y].getCellVoltage(i)) {
-          //     balance = balance | (1 << (i - 1));
-          //   }
-          //   last_one_balanced = false;
-          // }
-          // balance = balance | (1 << (i - 1));
-        // }
-      // }
-      // if (balance == 0xFF) {
-      //   bitClear(balance, low_cell);
-      // }
-      // if (balance == 0x3F) {
-      //   bitClear(balance, low_cell);
-      // }
       if (y == 9)  // hack for missing module #8
       {
         msg.buf[y - 2] = modules[y].getBalance();
@@ -168,39 +137,6 @@ void BMSModuleManager::balanceCells() {
   }
   for (int y = 10; y <= 15; y++) {
     if (modules[y].isExisting() == 1) {
-      // int balance = 0;
-      // int low_cell = 0;
-      // float lowestVolt = 5.0;
-      // bool last_one_balanced = false;
-      // for (int i = 1; i < 9; i++) {
-      //   if (modules[y].getCellVoltage(i) > getAvgCellVolt()) {
-      //   // if ((modules[y].getCellVoltage(i) - getLowCellVolt()) >
-      //   //     settings.balanceHyst) {
-      //     if (modules[y].getCellVoltage(i) < lowestVolt) {
-      //       lowestVolt = modules[y].getCellVoltage(i);
-      //       low_cell = i;
-      //     }
-      //     // if (!last_one_balanced) {
-      //     //   balance =
-      //     //       balance |
-      //     //       (1 << (i - 1));  // 8 cell internal module bitshift correctly
-      //     //   last_one_balanced = true;
-      //     // } else {
-      //     //   if (modules[y].getCellVoltage(i - 1) <
-      //     //       modules[y].getCellVoltage(i)) {
-      //     //     balance = balance | (1 << (i - 1));
-      //     //   }
-      //     //   last_one_balanced = false;
-      //     // }
-      //     balance = balance | (1 << (i - 1));
-      //   }
-      // }
-      // if (balance == 0xFF) {
-      //   bitClear(balance, low_cell);
-      // }
-      // if (balance == 0x3F) {
-      //   bitClear(balance, low_cell);
-      // }
       if (y > 11)  // hack for missing module #12
       {
         msg.buf[y - 11] = modules[y].getBalance();

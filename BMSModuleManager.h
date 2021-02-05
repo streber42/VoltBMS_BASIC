@@ -40,6 +40,7 @@ public:
   void printPackDetails(int digits, bool port);
 
   bool checkcomms();
+  BMSModule modules[MAX_MODULE_ADDR + 1]; // store data for as many modules as we've configured for.
 
 private:
   CAN_message_t msg;
@@ -53,7 +54,6 @@ private:
   float highestPackTemp;
   float highTemp;
   float lowTemp;
-  BMSModule modules[MAX_MODULE_ADDR + 1]; // store data for as many modules as we've configured for.
   int batteryID;
   int numFoundModules; // The number of modules that seem to exist
   bool isFaulted;
